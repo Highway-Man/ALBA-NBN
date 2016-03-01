@@ -112,7 +112,50 @@ void initialize();
  */
 void operatorControl(); 
  
+extern Encoder yellowDriveEncoder;
+extern Encoder greenDriveEncoder;
+ 
+ 
+ 
+ 
+extern Encoder yellowFlywheelEncoder;
+extern Encoder greenFlywheelEncoder;
 
+short sign(int var);
+
+double rpmL, rpmR;
+void updateVelocity(Encoder left, Encoder right);
+
+short tbhStarted;
+long flywheelTargetRpm;
+short hasCrossedL, hasCrossedR;
+short flywheelCommandL, flywheelCommandR;
+void tbhControllerUpdate(void *ignore);
+
+#define straight 0
+#define turn 1
+short dir;
+long baseTargetPosition;
+short baseCommandL, baseCommandR;
+void pControllerUpdate(void *ignore);
+
+void setConveyor(short command);
+
+void indexFeeder(int timeRunning, int timeStopped);
+
+void waitForFlywheels(float percentError, long target);
+
+#define	red	0
+#define	blue	1
+#define stacks	1
+#define intercept 2
+#define preloads 3
+#define hoard 4
+#define skills 5
+#define nothing 6
+
+int autonomousMode;
+int autonomousColor;
 
 // End C++ export structure
 #ifdef __cplusplus

@@ -43,9 +43,14 @@
  * configure a UART port (usartOpen()) but cannot set up an LCD (lcdInit()).
  */
 void initializeIO() {
-digitalWrite(1, LOW);
-pinMode(1, OUTPUT);
 
+	digitalWrite(5, LOW);
+	pinMode(5, OUTPUT);
+
+	digitalWrite(1, LOW);
+	pinMode(1, OUTPUT);
+	digitalWrite(2, LOW);
+	pinMode(2, OUTPUT);
 
 }
 
@@ -63,6 +68,97 @@ pinMode(1, OUTPUT);
  * can be implemented in this task if desired.
  */
 
- void initialize() { 
+autonomousMode = preloads;
+autonomousColor = red;
+void lcdAutoSelection() {
+	short pageAuto = 0, maxPageAuto = 6;
+	short autoSelected = 0, colorSelected = 0;
+	short pageColor = red;
+	while (isEnabled() == false) {
+		if (!autoSelected) {
+			if (pageAuto == stacks)
+				lcdSetText(uart1, 1, "stacks");
+			else if (pageAuto == intercept)
+				lcdSetText(uart1, 1, "intercept");
+			else if (pageAuto == preloads)
+				lcdSetText(uart1, 1, "preloads only");
+			else if (pageAuto == hoard)
+				lcdSetText(uart1, 1, "hoarding");
+			else if (pageAuto == skills)
+				lcdSetText(uart1, 1, "skills");
+			else if (pageAuto == nothing)
+				lcdSetText(uart1, 1, "do nothing");
 
+			if (pageAuto < 1)
+				pageAuto = maxPageAuto;
+			else if (pageAuto > maxPageAuto)
+				pageAuto = 1;
+
+			if (lcdReadButtons(uart1) == LCD_BTN_LEFT) {
+				pageAuto--;
+				while (lcdReadButtons(uart1) == LCD_BTN_LEFT)
+					delay(20);
+			} else if (lcdReadButtons(uart1) == LCD_BTN_RIGHT) {
+				pageAuto++;
+				while (lcdReadButtons(uart1) == LCD_BTN_RIGHT)
+					delay(20);
+			}
+
+			if (lcdReadButtons(uart1) == LCD_BTN_CENTER) {
+				autonomousMode = pageAuto;
+				if (pageAuto == stacks)
+					lcdSetText(uart1, 2, "stacks");
+				else if (pageAuto == intercept)
+					lcdSetText(uart1, 2, "intercept");
+				else if (pageAuto == preloads)
+					lcdSetText(uart1, 2, "preloads only");
+				else if (pageAuto == hoard)
+					lcdSetText(uart1, 2, "hoarding");
+				else if (pageAuto == skills)
+					lcdSetText(uart1, 2, "skills");
+				else if (pageAuto == nothing)
+					lcdSetText(uart1, 2, "do nothing");
+				autoSelected = 1;
+			}
+		}
+		else{
+			if(pageColor == red)
+				lcdSetText(uart1,1,"red");
+			else
+				lcdSetText(uart1,1,"blue");
+
+			if(lcdReadButtons(uart1) == LCD_BTN_RIGHT){
+				pageColor = abs(pageColor-1);
+				while(lcdReadButtons(uart1) == LCD_BTN_RIGHT)
+					delay(20);
+			}
+
+			if(lcdReadButtons(uart1) == LCD_BTN_LEFT)
+				autoSelected = 0;
+
+			autonomousColor = pageColor;
+		}
+		delay(20);
+	}
+}
+
+Encoder yellowFlywheelEncoder;
+Encoder greenFlywheelEncoder;
+
+Encoder yellowDriveEncoder;
+Encoder greenDriveEncoder;
+
+void initialize() {
+	yellowDriveEncoder = encoderInit(8, 9, true);
+	greenDriveEncoder = encoderInit(6, 7, false);
+
+	yellowFlywheelEncoder = encoderInit(3, 4, false);
+	greenFlywheelEncoder = encoderInit(11, 12, false);
+
+	tbhStarted = 0;
+
+	lcdInit(uart1 );
+	lcdClear(uart1 );
+
+	lcdAutoSelection();
 }
