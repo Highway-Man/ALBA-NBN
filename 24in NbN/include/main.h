@@ -112,26 +112,28 @@ void initialize();
  */
 void operatorControl(); 
  
+//create drive encoders
 extern Encoder yellowDriveEncoder;
 extern Encoder greenDriveEncoder;
- 
- 
- 
- 
+
+//create flywheel encoders
 extern Encoder yellowFlywheelEncoder;
 extern Encoder greenFlywheelEncoder;
 
 short sign(int var);
 
+//updates velocity of flywheels
 double rpmL, rpmR;
 void updateVelocity(Encoder left, Encoder right);
 
+//updates flywheels' velocity controller
 short tbhStarted;
 long flywheelTargetRpm;
 short hasCrossedL, hasCrossedR;
 short flywheelCommandL, flywheelCommandR;
 void tbhControllerUpdate(void *ignore);
 
+//updates base's position controller
 #define straight 0
 #define turn 1
 short dir;
@@ -139,14 +141,20 @@ long baseTargetPosition;
 short baseCommandL, baseCommandR;
 void pControllerUpdate(void *ignore);
 
+void setFlywheels(short commandL, short commandR);
+
+//set conveyor motor
 void setConveyor(short command);
 
+//index feeder by 1 ball
 void indexFeeder(int timeRunning, int timeStopped);
 
+//wait for flywheels to recover velocity
 void waitForFlywheels(float percentError, long target);
 
-#define	red	0
-#define	blue	1
+//autonomous routines
+#define	red	1
+#define	blue	-1
 #define stacks	1
 #define intercept 2
 #define preloads 3
@@ -154,6 +162,7 @@ void waitForFlywheels(float percentError, long target);
 #define skills 5
 #define nothing 6
 
+//where autonomous selections are stored
 int autonomousMode;
 int autonomousColor;
 

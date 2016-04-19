@@ -53,29 +53,45 @@
  */
 
 double rpmL = 0, rpmR = 0;
-
+//flywheel velocity
 void updateVelocity(Encoder left, Encoder right) {
 	double unfilteredRpmL, unfilteredRpmR;
 	static long lastEncL = 0, lastEncR = 0, dEncL, dEncR, tLast = 0;
 	double dt;
 
+	//calc change in L encoder position
 	dEncL = encoderGet(left) - lastEncL;
+	//save position
 	lastEncL = encoderGet(left);
+	//calc change in R encoder position
 	dEncR = encoderGet(right) - lastEncR;
+	//save last position
 	lastEncR = encoderGet(right);
 
+	//calc change in time
 	dt = millis() - tLast;
 	tLast = millis();
 
+	//calculate rpms from changes
 	unfilteredRpmL = 1000.0 / dt * 60.0 * dEncL / 360.0 * 5.0;
 	unfilteredRpmR = 1000.0 / dt * 60.0 * dEncR / 360.0 * 5.0;
 
-	rpmL = .75 * rpmL + .25 * unfilteredRpmL;
-	rpmR = .75 * rpmR + .25 * unfilteredRpmR;
+	//apply IIR filter
+	rpmL = .60 * rpmL + .40 * unfilteredRpmL;
+	rpmR = .60 * rpmR + .40 * unfilteredRpmR;
 }
 
-short flywheelCommandL, flywheelCommandR;
+const unsigned int flywheelLeftLinearControl[128] = { 0, 14, 15, 16, 16, 17, 17,
+		18, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 22, 22, 22, 22,
+		23, 23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 26, 26, 26, 26, 27,
+		27, 27, 28, 28, 28, 28, 29, 29, 29, 30, 30, 30, 31, 31, 31, 32, 32, 32,
+		33, 33, 33, 34, 34, 34, 35, 35, 35, 36, 36, 37, 37, 37, 38, 38, 39, 39,
+		40, 40, 41, 42, 42, 43, 43, 44, 44, 45, 45, 46, 47, 48, 48, 49, 50, 51,
+		52, 52, 53, 54, 55, 56, 57, 59, 60, 61, 62, 63, 65, 66, 68, 70, 72, 73,
+		74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 86, 127 };
 
+short flywheelCommandL, flywheelCommandR;
+//update flywheel velocity controller
 void tbhControllerUpdate(void *ignore) {
 	long target;
 	static long errorL, errorR, pErrorL = 0, pErrorR = 0;
@@ -85,15 +101,50 @@ void tbhControllerUpdate(void *ignore) {
 
 	while (1) {
 
+		//save target and update velocity
 		target = flywheelTargetRpm;
-
 		updateVelocity(yellowFlywheelEncoder, greenFlywheelEncoder);
 
+		//calculate v error for both flywheels
+		//integrate error
 		errorL = target - rpmL;
 		speedL += kP * errorL;
 		errorR = target - rpmR;
 		speedR += kP * errorR;
 
+		//implements take back half when error crosses zero
+		if (errorL * pErrorL <= 0 && target > 0 && rpmL > 0) {
+			if (!hasCrossedL) {
+				speedL = 127.0 * target / 2100 * 6800 / powerLevelMain();
+				hasCrossedL = 1;
+			} else
+				speedL = .5 * (speedL + speedAtZeroL);
+			speedAtZeroL = speedL;
+		}
+		pErrorL = errorL;
+
+		//same for other side
+		if (errorR * pErrorR <= 0 && target > 0 && rpmR > 0) {
+			if (!hasCrossedR) {
+				speedR = (127.0 * target / 2040 * 7000 / powerLevelMain()) + 5;
+				hasCrossedR = 1;
+			} else
+				speedR = .5 * (speedR + speedAtZeroR);
+			speedAtZeroR = speedR;
+		}
+
+		//set to full speed after firing a ball
+		if (errorL > 200) {
+			speedL = 127;
+			hasCrossedL = 0;
+		}
+		if (errorR > 200) {
+			speedR = 127;
+			hasCrossedR = 0;
+		}
+
+		//cap at max speed
+		//don't go backwards
 		if (speedL > 127)
 			speedL = 127;
 		else if (speedL < 0)
@@ -103,65 +154,43 @@ void tbhControllerUpdate(void *ignore) {
 		else if (speedR < 0)
 			speedR = 0;
 
-		if (errorL * pErrorL <= 0 && target > 0 && rpmL > 0) {
-			if (!hasCrossedL) {
-				speedL = 127.0 * target / 3500.0;
-				hasCrossedL = 1;
-			} else
-				speedL = .5 * (speedL + speedAtZeroL);
-			speedAtZeroL = speedL;
-		}
-		pErrorL = errorL;
-
-		if (errorR * pErrorR <= 0 && target > 0 && rpmR > 0) {
-			if (!hasCrossedR) {
-				speedR = 127.0 * target / 3500.0;
-				hasCrossedR = 1;
-			} else
-				speedR = .5 * (speedR + speedAtZeroR);
-			speedAtZeroR = speedR;
-		}
-
-		if (errorL > 200){
-			speedL = 127;
-			hasCrossedL = 0;
-		}
-		if (errorR > 200){
-			speedR = 127;
-			hasCrossedR = 0;
-		}
-
+		//save values
 		pErrorR = errorR;
 
 		flywheelCommandL = speedL;
 		flywheelCommandR = speedR;
 
+		//light LED when we are at target velocity
 		if (abs(errorL) <= .02 * target && abs(errorR) <= .02 * target)
 			digitalWrite(5, LOW);
 		else
 			digitalWrite(5, HIGH);
 
-		printf("%d, %d, %d, %f, %f															            ", millis(), flywheelCommandR,
-				flywheelCommandL, rpmR, rpmL);
+		//print debug data to terminal
+		printf("%d, %d, %d, %f, %f															            ", millis(),
+				motorGet(6), -motorGet(4), rpmR, rpmL);
 
 		delay(20);
 	}
 }
 
 int matchLoads = 0;
-
+//controls both intake rollers in tele op
 void rollersControl(void *ignore) {
 
 	while (!isAutonomous()) {
-		while (matchLoads==1) {
+		//autonomatically run intake and feeder
+		while (matchLoads == 1) {
 			setConveyor(127);
 			while ((abs(flywheelTargetRpm - rpmL) > .01 * flywheelTargetRpm
-					|| abs(flywheelTargetRpm - rpmR) > .01 * flywheelTargetRpm) && matchLoads==1) {
+					|| abs(flywheelTargetRpm - rpmR) > .01 * flywheelTargetRpm)
+					&& matchLoads == 1) {
 				delay(20);
 			}
 			indexFeeder(700, 0);
 			delay(20);
 		}
+		//manual
 		//set feed motor
 		if (joystickGetDigital(1, 6, JOY_UP))
 			motorSet(10, 127);
@@ -190,7 +219,8 @@ void operatorControl() {
 
 	static int sevenIsHeld = 0;
 
-	if(tbhStarted == 0){
+	//start tasks we haven't started yet
+	if (tbhStarted == 0) {
 		taskCreate(tbhControllerUpdate, TASK_DEFAULT_STACK_SIZE, NULL,
 				TASK_PRIORITY_DEFAULT);
 		tbhStarted = 1;
@@ -213,16 +243,35 @@ void operatorControl() {
 //		delay(20);
 //	}
 
+//	for (int i = 0; i < 128; i++) {
+//		setFlywheels(i, i);
+//		delay(2000);
+//		updateVelocity(yellowFlywheelEncoder, greenFlywheelEncoder);
+//		printf("%d, %4.2f   												     	 		 	  ", i, rpmL);
+//		delay(50);
+//		printf("%d, %4.2f   												     	 		 	  ", i, rpmR);
+//		delay(50);
+//	}
+
 	while (1) {
+//		flywheelTargetRpm = 1300;
+//		motorSet(1, 127);
+//		motorSet(10, 127);
 
 		//toggle pneumatic actuators
 		if (joystickGetDigital(1, 8, JOY_UP)) {
 			digitalWrite(1, abs(digitalRead(1) - 1));
-			digitalWrite(2, abs(digitalRead(2) - 1));
 			while (joystickGetDigital(1, 8, JOY_UP))
 				delay(20);
 		}
 
+		//brake
+		if (joystickGetDigital(1, 8, JOY_LEFT))
+			digitalWrite(2, HIGH);
+		else
+			digitalWrite(2, LOW);
+
+		//activate automatic firing
 		if (joystickGetDigital(1, 8, JOY_DOWN)) {
 			matchLoads = abs(matchLoads - 1);
 			while (joystickGetDigital(1, 8, JOY_DOWN))
@@ -230,12 +279,16 @@ void operatorControl() {
 		}
 
 		//flywheel acceleration
-		if (joystickGetDigital(1, 7, JOY_UP) && !sevenIsHeld) {
-			flywheelTargetRpm += 25;
-			sevenIsHeld = 1;
-		} else if (joystickGetDigital(1, 7, JOY_DOWN) && !sevenIsHeld) {
-			flywheelTargetRpm -= 25;
-			sevenIsHeld = 1;
+		if (joystickGetDigital(1, 7, JOY_UP)) {
+			if (!sevenIsHeld) {
+				flywheelTargetRpm += 25;
+				sevenIsHeld = 1;
+			}
+		} else if (joystickGetDigital(1, 7, JOY_DOWN)) {
+			if (!sevenIsHeld) {
+				flywheelTargetRpm -= 25;
+				sevenIsHeld = 1;
+			}
 		}
 		//preset flywheel speeds
 		else if (joystickGetDigital(1, 7, JOY_RIGHT))
@@ -246,10 +299,10 @@ void operatorControl() {
 			sevenIsHeld = 0;
 
 		//set flywheel motors
-		motorSet(4, -flywheelCommandL);
-		motorSet(5, -flywheelCommandL);
-		motorSet(6, flywheelCommandR);
-		motorSet(7, flywheelCommandR);
+		motorSet(4, -flywheelLeftLinearControl[flywheelCommandL]);
+		motorSet(5, -flywheelLeftLinearControl[flywheelCommandL]);
+		motorSet(6, flywheelLeftLinearControl[flywheelCommandR]);
+		motorSet(7, flywheelLeftLinearControl[flywheelCommandR]);
 
 		//set drive motors
 		motorSet(2, joystickGetAnalog(1, 3));
@@ -257,14 +310,7 @@ void operatorControl() {
 		motorSet(8, -joystickGetAnalog(1, 2));
 		motorSet(9, joystickGetAnalog(1, 2));
 
-		//-5659 & 5141 5 rotations  -- 1082/rot
-		//5701 & 5006				   1070.7/rot
-		//4996 5798					   1079.4/rot	1078/rot
-		//9256 11363 @ 9 rot		   1145/5/rot
-
-		//2611, 1751 @ 100 in
-		//1867, 2798->1865.333
-
+//		print debug data to terminal
 //		printf("%d, %d; ", encoderGet(yellowDriveEncoder),
 //				encoderGet(greenDriveEncoder));
 

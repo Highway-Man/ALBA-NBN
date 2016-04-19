@@ -44,9 +44,11 @@
  */
 void initializeIO() {
 
+	//initialize LED's port
 	digitalWrite(5, LOW);
 	pinMode(5, OUTPUT);
 
+	//initialize pneumatic cylinders' ports
 	digitalWrite(1, LOW);
 	pinMode(1, OUTPUT);
 	digitalWrite(2, LOW);
@@ -68,14 +70,19 @@ void initializeIO() {
  * can be implemented in this task if desired.
  */
 
+//default autonomous settings
 autonomousMode = preloads;
 autonomousColor = red;
+//lcd autonomous selection menu
 void lcdAutoSelection() {
 	short pageAuto = 0, maxPageAuto = 6;
 	short autoSelected = 0, colorSelected = 0;
 	short pageColor = red;
+	//while we are disabled before match
 	while (isEnabled() == false) {
+		//have not selected routine yet
 		if (!autoSelected) {
+			//display 1 routine option at a time
 			if (pageAuto == stacks)
 				lcdSetText(uart1, 1, "stacks");
 			else if (pageAuto == intercept)
@@ -89,11 +96,13 @@ void lcdAutoSelection() {
 			else if (pageAuto == nothing)
 				lcdSetText(uart1, 1, "do nothing");
 
+			//wrap back around when we get to last routine
 			if (pageAuto < 1)
 				pageAuto = maxPageAuto;
 			else if (pageAuto > maxPageAuto)
 				pageAuto = 1;
 
+			//switch between routines
 			if (lcdReadButtons(uart1) == LCD_BTN_LEFT) {
 				pageAuto--;
 				while (lcdReadButtons(uart1) == LCD_BTN_LEFT)
@@ -104,6 +113,7 @@ void lcdAutoSelection() {
 					delay(20);
 			}
 
+			//select current routine with center button
 			if (lcdReadButtons(uart1) == LCD_BTN_CENTER) {
 				autonomousMode = pageAuto;
 				if (pageAuto == stacks)
@@ -121,27 +131,32 @@ void lcdAutoSelection() {
 				autoSelected = 1;
 			}
 		}
+		//move on to select color
 		else{
 			if(pageColor == red)
 				lcdSetText(uart1,1,"red");
 			else
 				lcdSetText(uart1,1,"blue");
 
+			//switch color
 			if(lcdReadButtons(uart1) == LCD_BTN_RIGHT){
-				pageColor = abs(pageColor-1);
+				pageColor = -1*pageColor;
 				while(lcdReadButtons(uart1) == LCD_BTN_RIGHT)
 					delay(20);
 			}
 
+			//go back
 			if(lcdReadButtons(uart1) == LCD_BTN_LEFT)
 				autoSelected = 0;
 
+			//save selection
 			autonomousColor = pageColor;
 		}
 		delay(20);
 	}
 }
 
+//our encoders
 Encoder yellowFlywheelEncoder;
 Encoder greenFlywheelEncoder;
 
@@ -149,16 +164,21 @@ Encoder yellowDriveEncoder;
 Encoder greenDriveEncoder;
 
 void initialize() {
+	//initialize base encoders
 	yellowDriveEncoder = encoderInit(8, 9, true);
 	greenDriveEncoder = encoderInit(6, 7, false);
 
+	//initialize flywheel encoders
 	yellowFlywheelEncoder = encoderInit(3, 4, false);
 	greenFlywheelEncoder = encoderInit(11, 12, false);
 
 	tbhStarted = 0;
 
+	//initialize lcd screen
 	lcdInit(uart1 );
 	lcdClear(uart1 );
+	lcdSetBacklight(uart1, true);
 
+	//run autonomous selection menu when we are done initializing
 	lcdAutoSelection();
 }
