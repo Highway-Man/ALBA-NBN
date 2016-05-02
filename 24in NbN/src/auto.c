@@ -132,7 +132,7 @@ void waitForFlywheels(float percentError, long target) {
 
 //return left base encoder position
 long baseEncoderLGet() {
-	return encoderGet(yellowDriveEncoder);
+	return 1.5 * encoderGet(yellowDriveEncoder);
 }//return rught base encoder position
 long baseEncoderRGet() {
 	return 1.5 * encoderGet(greenDriveEncoder);
@@ -154,14 +154,14 @@ void pControllerUpdate(void *ignore) {
 	long errorDist, errorDiff, distanceProportion, differenceProportion;
 	long distanceProportionMax = 110;
 	float kPDist = .0223, kPDiff = .8;
-	float minCommand, minCommandSt = 19;
+	float minCommand, minCommandSt = 22;
 	short brakingPower = -1, kAccel = 3;
 	static short pBaseCommandL = 0, pBaseCommandR = 0;
 	static long pBaseEncoderL = 0, pBaseEncoderR = 0;
 	static long pBaseTargetPosition;
 
 	float kPTurn = .04;
-	float minCommandTurn, minCommandTurnSt = 35;
+	float minCommandTurn, minCommandTurnSt = 33;
 
 	minCommand = minCommandSt;
 	minCommandTurn = minCommandTurnSt;
@@ -279,7 +279,7 @@ void pControllerUpdate(void *ignore) {
 					&& pBaseEncoderL == baseEncoderLGet())
 					|| (abs(baseCommandR) >= minCommand
 							&& pBaseEncoderR == baseEncoderRGet()))
-				minCommand += .1;
+				minCommand += .04;
 
 			//store previous values
 			pBaseCommandL = baseCommandL;
@@ -505,7 +505,7 @@ void hoarding(int color) {
 //autonomous routine to score preloads using velocity controller
 void scorePreloadsSmart() {
 	//start flywheels
-	flywheelTargetRpm = 1500;
+	flywheelTargetRpm = 1650;
 	waitForFlywheels(.01, flywheelTargetRpm);
 	setConveyor(127);
 	delay(500);
@@ -533,8 +533,8 @@ void repositionForStacks(int color) {
 	waitForBase(15);
 	baseEncReset();
 	//straighten against wall
-	baseTargetPositionStraightSet(-26);
-	waitForBaseTimeout(15, 2000);
+	baseTargetPositionStraightSet(-36);
+	waitForBaseTimeout(15, 4000);
 	baseEncReset();
 	//pull off of wall
 	baseTargetPositionStraightSet(9);
@@ -628,10 +628,10 @@ void progSkills(int color) {
 	waitForBase(15);
 	baseEncReset();
 	//start flywheels
-	flywheelTargetRpmSet(1310); //1525 for full field
+	flywheelTargetRpmSet(1350); //1525 for full field
 	//straighten against wall
-	baseTargetPositionStraightSet(48);
-	waitForBaseTimeout(15, 2750);
+	baseTargetPositionStraightSet(52);
+	waitForBaseTimeout(15, 3750);
 	baseEncReset();
 	//pull off of wall
 	baseTargetPositionStraightSet(-18);

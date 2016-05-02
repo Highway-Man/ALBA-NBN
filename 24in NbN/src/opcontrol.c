@@ -126,7 +126,7 @@ void tbhControllerUpdate(void *ignore) {
 		//same for other side
 		if (errorR * pErrorR <= 0 && target > 0 && rpmR > 0) {
 			if (!hasCrossedR) {
-				speedR = (127.0 * target / 2040 * 7000 / powerLevelMain()) + 5;
+				speedR = (127.0 * target / 2100 * 6800 / powerLevelMain());
 				hasCrossedR = 1;
 			} else
 				speedR = .5 * (speedR + speedAtZeroR);
@@ -285,16 +285,17 @@ void operatorControl() {
 				sevenIsHeld = 1;
 			}
 		} else if (joystickGetDigital(1, 7, JOY_DOWN)) {
-			if (!sevenIsHeld) {
-				flywheelTargetRpm -= 25;
-				sevenIsHeld = 1;
-			}
+//			if (!sevenIsHeld) {
+//				flywheelTargetRpm -= 25;
+//				sevenIsHeld = 1;
+//			}
+			flywheelTargetRpm = 0;
 		}
 		//preset flywheel speeds
 		else if (joystickGetDigital(1, 7, JOY_RIGHT))
-			flywheelTargetRpm = 1500;
+			flywheelTargetRpm = 1600;
 		else if (joystickGetDigital(1, 7, JOY_LEFT))
-			flywheelTargetRpm = 1300;
+			flywheelTargetRpm = 1350;
 		else
 			sevenIsHeld = 0;
 
